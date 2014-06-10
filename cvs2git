@@ -34,6 +34,8 @@ if [[ -z $cfg || $cfg = */* || ! -s $cfg ]]; then
 	print -ru2 "E: configuration file '$cfg' not found"
 	exit 1
 fi
+set -A pprm_branches
+set -A pprm_tags
 set -A torm_branches
 set -A torm_tags
 unset source remote prepend
@@ -98,6 +100,15 @@ git fast-import --import-marks=../cvs2git-tmp/git-marks.dat <../dumpfile || \
     die "git fast-import of dumpfile failed with errorlevel $?"
 print -u2 "I: $SECONDS seconds elapsed for dump import"
 
+git remote add target "$remote" || die "git remote failed with errorlevel $?"
+for var in "${torm_branches[@]}"; do
+	git branch -D "$var" || die "git branch failed with errorlevel $?"
+done
+for var in "${torm_tags[@]}"; do
+	git tag -d "$var" || die "git tag failed with errorlevel $?"
+done
+print -u2 "I: $SECONDS seconds elapsed for janitorial work"
+
 if [[ -n $prepend ]]; then
 	git remote add urahn "$prepend" || \
 	    die "git remote failed with errorlevel $?"
@@ -149,6 +160,13 @@ if [[ -n $prepend ]]; then
 		print -r -- "$exhash" "$hash" >>info/grafts
 		print -ru2 "N: graft $exhash $hash"
 	done || die "git ls-remote failed with errorlevel $?"
+	# remove branches/tags that are not necessary to merge
+	for var in "${pprm_branches[@]}"; do
+		git branch -D "$var" || die "git branch failed with errorlevel $?"
+	done
+	for var in "${pprm_tags[@]}"; do
+		git tag -d "$var" || die "git tag failed with errorlevel $?"
+	done
 	# make graft permanent
 	if [[ -s info/grafts ]]; then
 		git filter-branch --tag-name-filter cat -- --all || \
@@ -165,15 +183,6 @@ if [[ -n $prepend ]]; then
 	    die "git remote failed with errorlevel $?"
 	print -u2 "I: $SECONDS seconds elapsed for history prepending"
 fi
-
-git remote add target "$remote" || die "git remote failed with errorlevel $?"
-for var in "${torm_branches[@]}"; do
-	git branch -D "$var" || die "git branch failed with errorlevel $?"
-done
-for var in "${torm_tags[@]}"; do
-	git tag -d "$var" || die "git tag failed with errorlevel $?"
-done
-print -u2 "I: $SECONDS seconds elapsed for janitorial work"
 
 git gc --aggressive --prune=now || die "git gc failed with errorlevel $?"
 print -u2 "I: $SECONDS seconds elapsed for garbage collection"
