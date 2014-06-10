@@ -98,15 +98,6 @@ git fast-import --import-marks=../cvs2git-tmp/git-marks.dat <../dumpfile || \
     die "git fast-import of dumpfile failed with errorlevel $?"
 print -u2 "I: $SECONDS seconds elapsed for dump import"
 
-git remote add target "$remote" || die "git remote failed with errorlevel $?"
-for var in "${torm_branches[@]}"; do
-	git branch -D "$var" || die "git branch failed with errorlevel $?"
-done
-for var in "${torm_tags[@]}"; do
-	git tag -d "$var" || die "git tag failed with errorlevel $?"
-done
-print -u2 "I: $SECONDS seconds elapsed for janitorial work"
-
 if [[ -n $prepend ]]; then
 	git remote add urahn "$prepend" || \
 	    die "git remote failed with errorlevel $?"
@@ -174,6 +165,15 @@ if [[ -n $prepend ]]; then
 	    die "git remote failed with errorlevel $?"
 	print -u2 "I: $SECONDS seconds elapsed for history prepending"
 fi
+
+git remote add target "$remote" || die "git remote failed with errorlevel $?"
+for var in "${torm_branches[@]}"; do
+	git branch -D "$var" || die "git branch failed with errorlevel $?"
+done
+for var in "${torm_tags[@]}"; do
+	git tag -d "$var" || die "git tag failed with errorlevel $?"
+done
+print -u2 "I: $SECONDS seconds elapsed for janitorial work"
 
 git gc --aggressive --prune=now || die "git gc failed with errorlevel $?"
 print -u2 "I: $SECONDS seconds elapsed for garbage collection"
