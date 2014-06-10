@@ -1,0 +1,185 @@
+#!/bin/mksh
+#-
+# Copyright © 2014
+#	Thorsten Glaser <tg@mirbsd.org>
+#
+# Provided that these terms and disclaimer and all copyright notices
+# are retained or reproduced in an accompanying document, permission
+# is granted to deal in this work without restriction, including un‐
+# limited rights to use, publicly perform, distribute, sell, modify,
+# merge, give away, or sublicence.
+#
+# This work is provided “AS IS” and WITHOUT WARRANTY of any kind, to
+# the utmost extent permitted by applicable law, neither express nor
+# implied; without malicious intent or gross negligence. In no event
+# may a licensor, author or contributor be held liable for indirect,
+# direct, other damage, loss, or other issues arising in any way out
+# of dealing in the work, even if advised of the possibility of such
+# damage or existence of a defect, except proven that it results out
+# of said person’s immediate fault when using the work as intended.
+
+# needs mksh R50 2014/06/10
+set -o pipefail
+
+mydir=$(dirname "$(realpath "$0")")
+cfg=${1%%.cfg}.cfg
+for tool in cvs cvs2git git; do
+	var=$(whence -p $tool) && [[ -n $var && -x $var ]] && continue
+	print -ru2 "E: tool $tool missing"
+	exit 1
+done
+
+cd "$mydir"
+if [[ -z $cfg || $cfg = */* || ! -s $cfg ]]; then
+	print -ru2 "E: configuration file '$cfg' not found"
+	exit 1
+fi
+set -A torm_branches
+set -A torm_tags
+unset source remote prepend
+. "$mydir/$cfg"
+for var in source remote; do
+	eval '[[ -n $'$var' ]]' && continue
+	print -ru2 "E: config file '$cfg' var $var not set"
+	exit 1
+done
+if [[ ! -d $source/. ]]; then
+	print -ru2 "E: config file '$cfg' source '$source' does not exist"
+	exit 1
+fi
+
+# not in /tmp due to sheer size of tmp files
+if ! T=$(mktemp -d /var/tmp/cvs2git.XXXXXXXXXX); then
+	print -u2 "E: mkdtemp failed"
+	exit 255
+fi
+print -ru2 "I: Entering working area '$T'"
+cd "$T"
+
+function cleanup_and_die {
+	cd /
+	#print -ru2 \
+	rm -rf "$T"
+	exit ${1:-1}
+}
+
+trap cleanup_and_die 1 2 3 5 13 15
+
+function die {
+	print -ru2 "E: $*"
+	cleanup_and_die
+}
+
+cat >cvswrapper <<-EOF
+	#!/bin/mksh
+	cvs "\$@" 2>${T@Q}/cvswrapped; rv=\$?
+	grep -E -v \
+	    -e 'Danger: Granting read access to incompatible repository!' \
+	    -e 'CVSROOT/config: found keyword .(tag|umask|DisableXProg). in repository' \
+	    <${T@Q}/cvswrapped >&2
+	exit \$rv
+EOF
+chmod +x cvswrapper || die "chmod failed with errorlevel $?"
+print -u2 "I: $SECONDS seconds elapsed for setup"
+
+cvs2git --blobfile=blobfile --dumpfile=dumpfile \
+    --encoding=utf-8 --fallback-encoding=cp1252 \
+    --username=cvs2git --keywords-off --keep-cvsignore \
+    --use-cvs --cvs="$T"/cvswrapper \
+    "$source" || die "cvs2git failed with errorlevel $?"
+print -u2 "I: $SECONDS seconds elapsed for cvs2git"
+
+git init --bare dst || die "git init failed with errorlevel $?"
+cd dst
+git fast-import --export-marks=../cvs2git-tmp/git-marks.dat <../blobfile || \
+    die "git fast-import of blobfile failed with errorlevel $?"
+print -u2 "I: $SECONDS seconds elapsed for blob import"
+git fast-import --import-marks=../cvs2git-tmp/git-marks.dat <../dumpfile || \
+    die "git fast-import of dumpfile failed with errorlevel $?"
+print -u2 "I: $SECONDS seconds elapsed for dump import"
+
+git remote add target "$remote" || die "git remote failed with errorlevel $?"
+for var in "${torm_branches[@]}"; do
+	git branch -D "$var" || die "git branch failed with errorlevel $?"
+done
+for var in "${torm_tags[@]}"; do
+	git tag -d "$var" || die "git tag failed with errorlevel $?"
+done
+print -u2 "I: $SECONDS seconds elapsed for janitorial work"
+
+if [[ -n $prepend ]]; then
+	git remote add urahn "$prepend" || \
+	    die "git remote failed with errorlevel $?"
+	# mixin tags
+	git ls-remote --tags urahn | while read -r hash ref; do
+		if git show-ref --verify --quiet "$ref"; then
+			# tag already exists
+			git show-ref --verify "$ref" |&
+			read -pr exhash exref
+			print -ru2 "I: pull existing tag '$ref' ($hash vs $exhash)"
+			if [[ $hash = "$exhash" ]]; then
+				# they are the same, though, uniquify
+				continue
+			fi
+			# rename older tag, at most once
+			new=$ref@$hash
+			if git show-ref --verify --quiet "$new"; then
+				# renamed tag also already exists
+				git show-ref --verify "$new" |&
+				read -pr exhash exref
+				[[ $hash = "$exhash" ]] && continue
+				die "new ref '$new' already exists"
+			fi
+		else
+			# fetch the existing tag
+			print -ru2 "I: pull new tag '$ref' ($hash)"
+			new=$ref
+		fi
+		git fetch -n urahn "$ref:$new" || \
+		    die "git fetch failed with errorlevel $?"
+	done || die "git ls-remote failed with errorlevel $?"
+	# mixin branches
+	git ls-remote --heads urahn | while read -r hash ref; do
+		if ! git show-ref --verify --quiet "$ref"; then
+			# branch does not yet exist, simply pull it
+			print -ru2 "I: pull new branch '$ref' ($hash)"
+			git fetch -n urahn "$ref:$ref" || \
+			    die "git fetch failed with errorlevel $?"
+			continue
+		fi
+		print -ru2 "I: pull existing branch '$ref'"
+		# fetch objects belonging to the branch (old)
+		git fetch -n urahn "$ref" || \
+		    die "git fetch failed with errorlevel $?"
+		# find out the root commit of the branch (new)
+		exhash=$(git rev-list --reverse "$ref" | head -n 1) || \
+		    die "git rev-list | head failed with errorlevel $?"
+		# create a graft point
+		print -r -- "$exhash" "$hash" >>info/grafts
+		print -ru2 "N: graft $exhash $hash"
+	done || die "git ls-remote failed with errorlevel $?"
+	# make graft permanent
+	if [[ -s info/grafts ]]; then
+		git filter-branch --tag-name-filter cat -- --all || \
+		    die "git filter-branch failed with errorlevel $?"
+		rm -f info/grafts
+	fi
+	# nuke junk
+	git for-each-ref --format="%(refname)" refs/original/ | \
+	    while IFS= read -r ref; do
+		git update-ref -d "$ref" || \
+		    die "git update-ref failed with errorlevel $?"
+	done || die "git for-each-ref failed with errorlevel $?"
+	git remote remove urahn || \
+	    die "git remote failed with errorlevel $?"
+	print -u2 "I: $SECONDS seconds elapsed for history prepending"
+fi
+
+git gc --aggressive --prune=now || die "git gc failed with errorlevel $?"
+print -u2 "I: $SECONDS seconds elapsed for garbage collection"
+git push --mirror target || die "git push failed with errorlevel $?"
+print -u2 "I: $SECONDS seconds elapsed after pushing"
+
+cd /
+rm -rf "$T"
+exit 0
