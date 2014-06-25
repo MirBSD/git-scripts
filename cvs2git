@@ -75,6 +75,7 @@ function die {
 cat >cvswrapper <<-EOF
 	#!/bin/mksh
 	cvs "\$@" 2>${T@Q}/cvswrapped; rv=\$?
+	logger -t 'cvs2git-wrapper' "result \$rv from wrapped \$*"
 	grep -E -v \
 	    -e 'Danger: Granting read access to incompatible repository!' \
 	    -e 'CVSROOT/config: found keyword .(tag|umask|DisableXProg). in repository' \
