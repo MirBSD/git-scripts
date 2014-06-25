@@ -18,7 +18,7 @@
 # damage or existence of a defect, except proven that it results out
 # of said person’s immediate fault when using the work as intended.
 #-
-# requires cvs2svn (2.4.0-2tarent1)
+# requires cvs2svn (2.4.0-2tarent2)
 
 # needs mksh R50 2014/06/10
 set -o pipefail
@@ -40,7 +40,7 @@ set -A pprm_branches
 set -A pprm_tags
 set -A torm_branches
 set -A torm_tags
-unset source remote prepend
+unset domain source remote prepend cvs2git_username
 . "$mydir/$cfg"
 for var in source remote; do
 	eval '[[ -n $'$var' ]]' && continue
@@ -50,6 +50,11 @@ done
 if [[ ! -d $source/. ]]; then
 	print -ru2 "E: config file '$cfg' source '$source' does not exist"
 	exit 1
+fi
+[[ -n $cvs2git_username ]] || if [[ -n $domain ]]; then
+	cvs2git_username=root
+else
+	cvs2git_username=cvs2git
 fi
 
 # not in /tmp due to sheer size of tmp files
@@ -88,9 +93,9 @@ print -u2 "I: $SECONDS seconds elapsed for setup"
 
 cvs2git --blobfile=blobfile --dumpfile=dumpfile \
     --encoding=utf-8 --fallback-encoding=cp1252 \
-    --username=cvs2git --keywords-off --keep-cvsignore \
+    --username="$cvs2git_username" --keywords-off --keep-cvsignore \
     --use-cvs --cvs="$T"/cvswrapper \
-    --force-keyword-mode=kept \
+    --force-keyword-mode=kept ${domain:+--cvs-domain="$domain"} \
     "$source" || die "cvs2git failed with errorlevel $?"
 print -u2 "I: $SECONDS seconds elapsed for cvs2git"
 
