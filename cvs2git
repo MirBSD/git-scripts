@@ -108,6 +108,11 @@ git fast-import --import-marks=../cvs2git-tmp/git-marks.dat <../dumpfile || \
     die "git fast-import of dumpfile failed with errorlevel $?"
 print -u2 "I: $SECONDS seconds elapsed for dump import"
 
+if [[ $remote = /* && ! -d $remote/. ]]; then
+	mkdir -p "$remote" || \
+	    die "remote '$remote' not found and could not be created (with errorlevel $?) either"
+	git init --bare "$remote" || die "git init failed with errorlevel $?"
+fi
 git remote add target "$remote" || die "git remote failed with errorlevel $?"
 for var in "${torm_branches[@]}"; do
 	git branch -D "$var" || die "git branch failed with errorlevel $?"
