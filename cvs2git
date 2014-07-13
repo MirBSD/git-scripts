@@ -167,8 +167,8 @@ if [[ -n $prepend ]]; then
 		git fetch -n urahn "$ref" || \
 		    die "git fetch failed with errorlevel $?"
 		# find out the root commit of the branch (new)
-		exhash=$(git rev-list --reverse "$ref" | head -n 1) || \
-		    die "git rev-list | head failed with errorlevel $?"
+		exhash=$(git rev-list "$ref" | tail -n 1) || \
+		    die "git rev-list | tail failed with errorlevel $?"
 		# create a graft point
 		print -r -- "$exhash" "$hash" >>info/grafts
 		print -ru2 "N: graft $exhash $hash"
