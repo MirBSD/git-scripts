@@ -123,6 +123,8 @@ done
 print -u2 "I: $SECONDS seconds elapsed for janitorial work"
 
 if [[ -n $prepend ]]; then
+	# Urahn means ancestor… it’s hard to find terms to use that
+	# do not already have meaning in (D)VCS context…
 	git remote add urahn "$prepend" || \
 	    die "git remote failed with errorlevel $?"
 	# mixin tags
