@@ -2,13 +2,13 @@ diff -Nru cvs2svn-2.4.0/debian/changelog cvs2svn-2.4.0/debian/changelog
 --- cvs2svn-2.4.0/debian/changelog	2014-02-06 20:16:02.000000000 +0100
 +++ cvs2svn-2.4.0/debian/changelog	2014-06-25 12:34:22.000000000 +0200
 @@ -1,3 +1,11 @@
-+cvs2svn (2.4.0-2tarent2) tarent; urgency=medium
++cvs2svn (2.4.0-2tarent3) tarent; urgency=medium
 +
 +  * Non-maintainer upload.
 +  * debian/patches/force-keyword-mode.patch: New.
 +  * debian/patches/cvs-domain.patch: New.
 +
-+ -- Thorsten Glaser <tg@mirbsd.de>  Wed, 25 Jun 2014 12:34:14 +0200
++ -- Thorsten Glaser <tg@mirbsd.de>  Mon, 06 Apr 2015 21:27:08 +0000
 +
  cvs2svn (2.4.0-2) unstable; urgency=low
  
@@ -152,11 +152,11 @@ diff -Nru cvs2svn-2.4.0/debian/patches/force-keyword-mode.patch cvs2svn-2.4.0/de
 ++        action='store',
 ++        help='force (untouched, collapsed, expanded, kept), or no',
 ++        man_help=(
-++            'Keyword mode to force, or \\fIno\\fR to use the default.'
-++            '\\fIopt\\fR can be \'untouched\' (keep literally as they'
-++            'are recorded in the RCS file), \'collapsed\' (retain the'
-++            'key but not the value), \'expanded\' (fake the way CVS'
-++            'expands them, even for binaries), \'kept\' (just let CVS'
+++            'Keyword mode to force, or \\fIno\\fR to use the default. '
+++            '\\fIopt\\fR can be \'untouched\' (keep literally as they '
+++            'are recorded in the RCS file), \'collapsed\' (retain the '
+++            'key but not the value), \'expanded\' (fake the way CVS '
+++            'expands them, even for binaries), \'kept\' (just let CVS '
 ++            'deal with keywords).'
 ++            ),
 ++        metavar='OPT',
