@@ -1,8 +1,8 @@
 #!/bin/mksh
 # -*- mode: sh -*-
 #-
-# Copyright © 2014
-#	Thorsten Glaser <tg@mirbsd.org>
+# Copyright © 2014, 2015
+#	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
 # are retained or reproduced in an accompanying document, permission
@@ -41,6 +41,7 @@ set -A pprm_branches
 set -A pprm_tags
 set -A torm_branches
 set -A torm_tags
+set -A extra_grafts
 unset domain source remote prepend cvs2git_username
 . "$mydir/$cfg"
 for var in source remote; do
@@ -184,6 +185,10 @@ if [[ -n $prepend ]]; then
 		git tag -d "$var" || die "git tag failed with errorlevel $?"
 	done
 	# make graft permanent
+	for var in "${extra_grafts[@]}"; do
+		print -r -- $var >>info/grafts
+		print -ru2 "N: extra graft" $var
+	done
 	if [[ -s info/grafts ]]; then
 		git filter-branch --tag-name-filter cat -- --all || \
 		    die "git filter-branch failed with errorlevel $?"
