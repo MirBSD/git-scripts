@@ -19,7 +19,8 @@
 # damage or existence of a defect, except proven that it results out
 # of said person’s immediate fault when using the work as intended.
 #-
-# requires cvs2svn (2.4.0-2tarent2)
+# requires cvs (2:1.12.13+real-17)
+# requires cvs2svn (2.4.0-3tarent1)
 
 # needs mksh R50 2014/06/10
 set -o pipefail
