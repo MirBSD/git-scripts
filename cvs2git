@@ -44,6 +44,7 @@ set -A torm_branches
 set -A torm_tags
 set -A extra_grafts
 unset domain source remote prepend cvs2git_username
+do_precollect() { :; }
 . "$mydir/$cfg"
 for var in source remote; do
 	eval '[[ -n $'$var' ]]' && continue
@@ -81,6 +82,8 @@ function die {
 	print -ru2 "E: $*"
 	cleanup_and_die
 }
+
+(do_precollect) || die do_precollect failed
 
 cat >cvswrapper <<-EOF
 	#!/bin/mksh
