@@ -1,7 +1,7 @@
 #!/bin/mksh
 # -*- mode: sh -*-
 #-
-# Copyright © 2014, 2015
+# Copyright © 2014, 2015, 2017
 #	mirabilos <m@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -192,6 +192,11 @@ if [[ -n $prepend ]]; then
 		print -r -- $var >>info/grafts
 		print -ru2 "N: extra graft" $var
 	done
+	if [[ -n $cvs2git_graft_debugging ]]; then
+		print -ru2 "!! Spawning a shell for graft debugging"
+		print -ru2 "N: Type 'exit' to continue conversion!"
+		mksh -l 0<>/dev/tty >&0 2>&0
+	fi
 	if [[ -s info/grafts ]]; then
 		git filter-branch --tag-name-filter cat -- --all || \
 		    die "git filter-branch failed with errorlevel $?"
