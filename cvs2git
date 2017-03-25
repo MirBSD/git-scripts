@@ -42,8 +42,10 @@ set -A pprm_tags
 set -A torm_branches
 set -A torm_tags
 set -A extra_grafts
+set -A extra_remotes
 unset domain source remote prepend cvs2git_username
 do_precollect() { :; }
+do_extrafetch() { :; }	# make this set do_grafts=1 if used
 . "$mydir/$cfg"
 for var in source remote; do
 	eval '[[ -n $'$var' ]]' && continue
@@ -127,6 +129,7 @@ for var in "${torm_tags[@]}"; do
 done
 print -u2 "I: $SECONDS seconds elapsed for janitorial work"
 
+do_grafts=0
 if [[ -n $prepend ]]; then
 	# Urahn means ancestor… it’s hard to find terms to use that
 	# do not already have meaning in (D)VCS context…
@@ -187,7 +190,10 @@ if [[ -n $prepend ]]; then
 	for var in "${pprm_tags[@]}"; do
 		git tag -d "$var" || die "git tag failed with errorlevel $?"
 	done
-	# make graft permanent
+	do_grafts=1
+fi
+do_extrafetch
+if (( do_grafts )); then
 	for var in "${extra_grafts[@]}"; do
 		print -r -- $var >>info/grafts
 		print -ru2 "N: extra graft" $var
@@ -197,6 +203,7 @@ if [[ -n $prepend ]]; then
 		print -ru2 "N: Type 'exit' to continue conversion!"
 		mksh -l 0<>/dev/tty >&0 2>&0
 	fi
+	# make graft permanent
 	if [[ -s info/grafts ]]; then
 		git filter-branch --tag-name-filter cat -- --all || \
 		    die "git filter-branch failed with errorlevel $?"
@@ -208,8 +215,10 @@ if [[ -n $prepend ]]; then
 		git update-ref -d "$ref" || \
 		    die "git update-ref failed with errorlevel $?"
 	done || die "git for-each-ref failed with errorlevel $?"
-	git remote remove urahn || \
-	    die "git remote failed with errorlevel $?"
+	for var in urahn "${extra_remotes[@]}"; do
+		git remote remove "$var" || \
+		    die "git remote failed with errorlevel $?"
+	done
 	print -u2 "I: $SECONDS seconds elapsed for history prepending"
 fi
 
