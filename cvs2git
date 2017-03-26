@@ -42,7 +42,6 @@ set -A pprm_tags
 set -A torm_branches
 set -A torm_tags
 set -A extra_grafts
-set -A extra_remotes
 unset domain source remote prepend cvs2git_username
 do_precollect() { :; }
 do_extrafetch() { :; }	# make this set do_grafts=1 if used
@@ -120,7 +119,6 @@ if [[ $remote = /* && ! -d $remote/. ]]; then
 	    die "remote '$remote' not found and could not be created (with errorlevel $?) either"
 	git init --bare "$remote" || die "git init failed with errorlevel $?"
 fi
-git remote add target "$remote" || die "git remote failed with errorlevel $?"
 for var in "${torm_branches[@]}"; do
 	git branch -D "$var" || die "git branch failed with errorlevel $?"
 done
@@ -203,6 +201,11 @@ if (( do_grafts )); then
 		print -ru2 "N: Type 'exit' to continue conversion!"
 		mksh -l 0<>/dev/tty >&0 2>&0
 	fi
+	# drop extra remotes before doing this, for speed
+	for var in $(git remote); do
+		git remote remove "$var" || \
+		    die "git remote failed with errorlevel $?"
+	done
 	# make graft permanent
 	if [[ -s info/grafts ]]; then
 		git filter-branch --tag-name-filter cat -- --all || \
@@ -215,15 +218,13 @@ if (( do_grafts )); then
 		git update-ref -d "$ref" || \
 		    die "git update-ref failed with errorlevel $?"
 	done || die "git for-each-ref failed with errorlevel $?"
-	for var in urahn "${extra_remotes[@]}"; do
-		git remote remove "$var" || \
-		    die "git remote failed with errorlevel $?"
-	done
 	print -u2 "I: $SECONDS seconds elapsed for history prepending"
 fi
 
-git gc --aggressive --prune=now || die "git gc failed with errorlevel $?"
+git reflog expire --expire=all --all || die "git reflog failed with errorlevel $?"
+git gc --aggressive --prune=all || die "git gc failed with errorlevel $?"
 print -u2 "I: $SECONDS seconds elapsed for garbage collection"
+git remote add target "$remote" || die "git remote failed with errorlevel $?"
 git push --mirror target || die "git push failed with errorlevel $?"
 print -u2 "I: $SECONDS seconds elapsed after pushing"
 
