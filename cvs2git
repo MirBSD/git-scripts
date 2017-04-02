@@ -229,7 +229,7 @@ print -u2 "I: $SECONDS seconds elapsed for garbage collection"
 for rem in "${remote[@]}"; do
 	print -ru2 "D: pushing to $rem"
 	git remote add target$((++nrem)) "$rem" || die "git remote failed with errorlevel $?"
-	git push --mirror target$((++nrem)) || die "git push failed with errorlevel $?"
+	git push --mirror target$((nrem)) || die "git push failed with errorlevel $?"
 done
 print -u2 "I: $SECONDS seconds elapsed after pushing"
 
