@@ -42,7 +42,8 @@ set -A pprm_tags
 set -A torm_branches
 set -A torm_tags
 set -A extra_grafts
-unset domain source remote prepend cvs2git_username
+set -A remote
+unset domain source prepend cvs2git_username
 do_precollect() { :; }
 do_extrafetch() { :; }	# make this set do_grafts=1 if used
 . "$mydir/$cfg"
@@ -114,11 +115,12 @@ git fast-import --import-marks=../cvs2git-tmp/git-marks.dat <../dumpfile || \
     die "git fast-import of dumpfile failed with errorlevel $?"
 print -u2 "I: $SECONDS seconds elapsed for dump import"
 
-if [[ $remote = /* && ! -d $remote/. ]]; then
-	mkdir -p "$remote" || \
-	    die "remote '$remote' not found and could not be created (with errorlevel $?) either"
-	git init --bare "$remote" || die "git init failed with errorlevel $?"
-fi
+for rem in "${remote[@]}"; do
+	[[ $rem = /* && ! -d $rem/. ]] || continue
+	mkdir -p "$rem" || \
+	    die "remote '$rem' not found and could not be created (with errorlevel $?) either"
+	git init --bare "$rem" || die "git init '$rem' failed with errorlevel $?"
+done
 for var in "${torm_branches[@]}"; do
 	git branch -D "$var" || die "git branch failed with errorlevel $?"
 done
@@ -224,8 +226,11 @@ fi
 git reflog expire --expire=all --all || die "git reflog failed with errorlevel $?"
 git gc --aggressive --prune=all || die "git gc failed with errorlevel $?"
 print -u2 "I: $SECONDS seconds elapsed for garbage collection"
-git remote add target "$remote" || die "git remote failed with errorlevel $?"
-git push --mirror target || die "git push failed with errorlevel $?"
+for rem in "${remote[@]}"; do
+	print -ru2 "D: pushing to $rem"
+	git remote add target$((++nrem)) "$rem" || die "git remote failed with errorlevel $?"
+	git push --mirror target$((++nrem)) || die "git push failed with errorlevel $?"
+done
 print -u2 "I: $SECONDS seconds elapsed after pushing"
 
 cd /
