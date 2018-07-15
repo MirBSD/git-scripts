@@ -106,12 +106,13 @@ cvs2git --blobfile=blobfile --dumpfile=dumpfile \
     "$source" || die "cvs2git failed with errorlevel $?"
 print -u2 "I: $SECONDS seconds elapsed for cvs2git"
 
-git init --bare dst || die "git init failed with errorlevel $?"
+git=git
+$git init --bare dst || die "git init failed with errorlevel $?"
 cd dst
-git fast-import --export-marks=../cvs2git-tmp/git-marks.dat <../blobfile || \
+$git fast-import --export-marks=../cvs2git-tmp/git-marks.dat <../blobfile || \
     die "git fast-import of blobfile failed with errorlevel $?"
 print -u2 "I: $SECONDS seconds elapsed for blob import"
-git fast-import --import-marks=../cvs2git-tmp/git-marks.dat <../dumpfile || \
+$git fast-import --import-marks=../cvs2git-tmp/git-marks.dat <../dumpfile || \
     die "git fast-import of dumpfile failed with errorlevel $?"
 print -u2 "I: $SECONDS seconds elapsed for dump import"
 
@@ -119,13 +120,13 @@ for rem in "${remote[@]}"; do
 	[[ $rem = /* && ! -d $rem/. ]] || continue
 	mkdir -p "$rem" || \
 	    die "remote '$rem' not found and could not be created (with errorlevel $?) either"
-	git init --bare "$rem" || die "git init '$rem' failed with errorlevel $?"
+	$git init --bare "$rem" || die "git init '$rem' failed with errorlevel $?"
 done
 for var in "${torm_branches[@]}"; do
-	git branch -D "$var" || die "git branch failed with errorlevel $?"
+	$git branch -D "$var" || die "git branch failed with errorlevel $?"
 done
 for var in "${torm_tags[@]}"; do
-	git tag -d "$var" || die "git tag failed with errorlevel $?"
+	$git tag -d "$var" || die "git tag failed with errorlevel $?"
 done
 print -u2 "I: $SECONDS seconds elapsed for janitorial work"
 
@@ -133,13 +134,13 @@ do_grafts=0
 if [[ -n $prepend ]]; then
 	# Urahn means ancestor… it’s hard to find terms to use that
 	# do not already have meaning in (D)VCS context…
-	git remote add urahn "$prepend" || \
+	$git remote add urahn "$prepend" || \
 	    die "git remote failed with errorlevel $?"
 	# mixin tags
-	git ls-remote --tags urahn | while read -r hash ref; do
-		if git show-ref --verify --quiet "$ref"; then
+	$git ls-remote --tags urahn | while read -r hash ref; do
+		if $git show-ref --verify --quiet "$ref"; then
 			# tag already exists
-			git show-ref --verify "$ref" |&
+			$git show-ref --verify "$ref" |&
 			read -pr exhash exref
 			print -ru2 "I: pull existing tag '$ref' ($hash vs $exhash)"
 			if [[ $hash = "$exhash" ]]; then
@@ -148,9 +149,9 @@ if [[ -n $prepend ]]; then
 			fi
 			# rename older tag, at most once
 			new=$ref@$hash
-			if git show-ref --verify --quiet "$new"; then
+			if $git show-ref --verify --quiet "$new"; then
 				# renamed tag also already exists
-				git show-ref --verify "$new" |&
+				$git show-ref --verify "$new" |&
 				read -pr exhash exref
 				[[ $hash = "$exhash" ]] && continue
 				die "new ref '$new' already exists"
@@ -160,24 +161,24 @@ if [[ -n $prepend ]]; then
 			print -ru2 "I: pull new tag '$ref' ($hash)"
 			new=$ref
 		fi
-		git fetch -n urahn "$ref:$new" || \
+		$git fetch -n urahn "$ref:$new" || \
 		    die "git fetch failed with errorlevel $?"
 	done || die "git ls-remote failed with errorlevel $?"
 	# mixin branches
-	git ls-remote --heads urahn | while read -r hash ref; do
-		if ! git show-ref --verify --quiet "$ref"; then
+	$git ls-remote --heads urahn | while read -r hash ref; do
+		if ! $git show-ref --verify --quiet "$ref"; then
 			# branch does not yet exist, simply pull it
 			print -ru2 "I: pull new branch '$ref' ($hash)"
-			git fetch -n urahn "$ref:$ref" || \
+			$git fetch -n urahn "$ref:$ref" || \
 			    die "git fetch failed with errorlevel $?"
 			continue
 		fi
 		print -ru2 "I: pull existing branch '$ref'"
 		# fetch objects belonging to the branch (old)
-		git fetch -n urahn "$ref" || \
+		$git fetch -n urahn "$ref" || \
 		    die "git fetch failed with errorlevel $?"
 		# find out the root commit of the branch (new)
-		exhash=$(git rev-list "$ref" | tail -n 1) || \
+		exhash=$($git rev-list "$ref" | tail -n 1) || \
 		    die "git rev-list | tail failed with errorlevel $?"
 		# create a graft point
 		print -r -- "$exhash" "$hash" >>info/grafts
@@ -185,10 +186,10 @@ if [[ -n $prepend ]]; then
 	done || die "git ls-remote failed with errorlevel $?"
 	# remove branches/tags that are not necessary to merge
 	for var in "${pprm_branches[@]}"; do
-		git branch -D "$var" || die "git branch failed with errorlevel $?"
+		$git branch -D "$var" || die "git branch failed with errorlevel $?"
 	done
 	for var in "${pprm_tags[@]}"; do
-		git tag -d "$var" || die "git tag failed with errorlevel $?"
+		$git tag -d "$var" || die "git tag failed with errorlevel $?"
 	done
 	do_grafts=1
 fi
@@ -204,33 +205,33 @@ if (( do_grafts )); then
 		mksh -l 0<>/dev/tty >&0 2>&0
 	fi
 	# drop extra remotes before doing this, for speed
-	for var in $(git remote); do
-		git remote remove "$var" || \
+	for var in $($git remote); do
+		$git remote remove "$var" || \
 		    die "git remote failed with errorlevel $?"
 	done
 	# make graft permanent
 	if [[ -s info/grafts ]]; then
-		git filter-branch --tag-name-filter cat -- --all || \
+		$git filter-branch --tag-name-filter cat -- --all || \
 		    die "git filter-branch failed with errorlevel $?"
 		rm -f info/grafts
 	fi
 	# nuke junk
-	git for-each-ref --format="%(refname)" refs/original/ | \
+	$git for-each-ref --format="%(refname)" refs/original/ | \
 	    while IFS= read -r ref; do
-		git update-ref -d "$ref" || \
+		$git update-ref -d "$ref" || \
 		    die "git update-ref failed with errorlevel $?"
 	done || die "git for-each-ref failed with errorlevel $?"
 	print -u2 "I: $SECONDS seconds elapsed for history prepending"
 fi
 
-git reflog expire --expire=all --all || die "git reflog failed with errorlevel $?"
-git gc --aggressive --prune=all || die "git gc failed with errorlevel $?"
+$git reflog expire --expire=all --all || die "git reflog failed with errorlevel $?"
+$git gc --aggressive --prune=all || die "git gc failed with errorlevel $?"
 print -u2 "I: $SECONDS seconds elapsed for garbage collection"
 for rem in "${remote[@]}"; do
 	print -ru2 "D: pushing to $rem"
-	git remote add target "$rem" || die "git remote failed with errorlevel $?"
-	git push --mirror target || die "git push failed with errorlevel $?"
-	git remote remove target || die "git remote failed with errorlevel $?"
+	$git remote add target "$rem" || die "git remote failed with errorlevel $?"
+	$git push --mirror target || die "git push failed with errorlevel $?"
+	$git remote remove target || die "git remote failed with errorlevel $?"
 done
 print -u2 "I: $SECONDS seconds elapsed after pushing"
 
