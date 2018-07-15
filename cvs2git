@@ -106,7 +106,7 @@ cvs2git --blobfile=blobfile --dumpfile=dumpfile \
     "$source" || die "cvs2git failed with errorlevel $?"
 print -u2 "I: $SECONDS seconds elapsed for cvs2git"
 
-git=git
+git='git -c advice.graftFileDeprecated=false'
 $git init --bare dst || die "git init failed with errorlevel $?"
 cd dst
 $git fast-import --export-marks=../cvs2git-tmp/git-marks.dat <../blobfile || \
