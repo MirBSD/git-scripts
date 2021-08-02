@@ -226,7 +226,7 @@ if (( do_grafts )); then
 fi
 
 $git reflog expire --expire=all --all || die "git reflog failed with errorlevel $?"
-$git gc --aggressive --prune=all || die "git gc failed with errorlevel $?"
+$git gc --aggressive --prune=now || die "git gc failed with errorlevel $?"
 print -u2 "I: $SECONDS seconds elapsed for garbage collection"
 for rem in "${remote[@]}"; do
 	print -ru2 "D: pushing to $rem"
