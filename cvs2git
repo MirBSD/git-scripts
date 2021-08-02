@@ -235,6 +235,12 @@ for rem in "${remote[@]}"; do
 	$git remote remove target || die "git remote failed with errorlevel $?"
 done
 print -u2 "I: $SECONDS seconds elapsed after pushing"
+for rem in "${remote[@]}"; do
+	[[ $rem = /* ]] || continue
+	print -ru2 "D: gc’ing $rem"
+	cd "$rem" && $git gc
+done
+print -u2 "I: $SECONDS seconds elapsed after gc’ing"
 
 cd /
 rm -rf "$T"
